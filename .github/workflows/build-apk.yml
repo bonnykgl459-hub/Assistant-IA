@@ -1,0 +1,70 @@
+name: Construire APK Android
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  construire:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Récupérer le projet
+        uses: actions/checkout@v4
+
+      - name: Installer Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Préparer Android SDK
+        uses: android-actions/setup-android@v4
+        with:
+          packages: ""
+
+      - name: Installer les composants Android
+        run: |
+          sdkmanager --install \
+            "platform-tools" \
+            "platforms;android-35" \
+            "build-tools;35.0.0"
+
+      - name: Décompresser le projet
+        run: |
+          mkdir -p project
+          unzip -q assistant_ia_1usd_complete.zip -d project
+
+      - name: Vérifier le projet Android
+        run: |
+          test -f project/assistant_ia_1usd_complete/android/settings.gradle
+          test -f project/assistant_ia_1usd_complete/android/app/build.gradle
+          echo "Projet Android trouvé."
+
+      - name: Installer Gradle
+        uses: gradle/actions/setup-gradle@v6
+        with:
+          gradle-version: "8.10.2"
+
+      - name: Construire l'APK
+        run: |
+          gradle \
+            -p project/assistant_ia_1usd_complete/android \
+            assembleDebug \
+            --no-daemon \
+            --stacktrace
+
+      - name: Vérifier l'APK
+        run: |
+          ls -lh project/assistant_ia_1usd_complete/android/app/build/outputs/apk/debug/
+          test -f project/assistant_ia_1usd_complete/android/app/build/outputs/apk/debug/app-debug.apk
+
+      - name: Publier l'APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: Assistant-IA-APK
+          path: project/assistant_ia_1usd_complete/android/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
